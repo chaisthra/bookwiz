@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 load_dotenv()
 
@@ -172,6 +173,44 @@ def get_visual_status(book_id: str):
     if not result.data:
         raise HTTPException(404, "Book not found")
     return result.data[0]
+
+
+@app.get("/books/{book_id}/progress")
+async def progress_stream(book_id: str):
+    """
+    SSE endpoint — streams book status and current_step every 2 seconds.
+    Client receives: { status, visual_status, current_step }
+    Stream ends when status is 'complete', 'failed', or visual_status is 'visuals_complete'.
+    """
+    import json as _json
+
+    db = get_client()
+
+    async def event_generator():
+        terminal_statuses = {"complete", "failed", "awaiting_scene_selection"}
+        terminal_visual = {"visuals_complete", "visuals_failed"}
+
+        while True:
+            result = db.table("books").select(
+                "status,visual_status,current_step"
+            ).eq("id", book_id).execute()
+
+            if not result.data:
+                yield {"data": _json.dumps({"error": "book not found"})}
+                break
+
+            row = result.data[0]
+            yield {"data": _json.dumps(row)}
+
+            # Stop streaming when pipeline reaches a terminal state
+            if row.get("status") in terminal_statuses:
+                break
+            if row.get("visual_status") in terminal_visual:
+                break
+
+            await asyncio.sleep(2)
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/books/{book_id}/scrapbook")

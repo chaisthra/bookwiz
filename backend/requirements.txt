@@ -6,6 +6,8 @@ langchain-openai==0.3.5
 langchain-google-genai==2.0.10
 openai==1.63.2
 google-generativeai==0.8.4
+google-genai>=1.5.0
+sse-starlette>=2.1.0
 pypdf==5.3.1
 ebooklib==0.18
 supabase==2.12.0

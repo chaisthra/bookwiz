@@ -41,6 +41,7 @@ class BookWizState(TypedDict):
     profile_id: str
     genre: str
     raw_text_chunks: list[str]
+    full_text: str              # all chunks joined — passed to Gemini 1M context agents
     characters: list[dict]
     scenes: list[dict]
     character_assets: list[dict]
@@ -76,6 +77,9 @@ def detect_genre(state: BookWizState) -> dict:
     chunks = state["raw_text_chunks"]
     sample = "\n\n---\n\n".join(chunks[:3])[:6000]
 
+    # Build full_text once here so all downstream agents share it
+    full_text = "\n\n".join(chunks)
+
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     response = llm.invoke([
         SystemMessage(content=_ANALYSIS_SYSTEM),
@@ -99,7 +103,7 @@ def detect_genre(state: BookWizState) -> dict:
     except Exception as e:
         print(f"[orchestrator] Failed to write genre to DB: {e}")
 
-    return {"genre": genre, "current_step": "genre_detected"}
+    return {"genre": genre, "full_text": full_text, "current_step": "genre_detected"}
 
 
 # ── Agent nodes ───────────────────────────────────────────────────────────────
@@ -114,6 +118,7 @@ def character_node(state: BookWizState) -> dict:
         book_id=state["book_id"],
         genre=state["genre"],
         chunks=state["raw_text_chunks"],
+        full_text=state.get("full_text", ""),
     )
     return {"characters": characters, "current_step": "characters_extracted"}
 
@@ -130,6 +135,8 @@ def scene_node(state: BookWizState) -> dict:
         chunks=state["raw_text_chunks"],
         user_preferences=state.get("user_preferences", {}),
         mode=state.get("mode", "manual"),
+        full_text=state.get("full_text", ""),
+        profile_id=state.get("profile_id", ""),
     )
     return {"scenes": scenes, "current_step": "scenes_extracted"}
 
@@ -256,6 +263,7 @@ def start_pipeline(
         profile_id=profile_id,
         genre="",
         raw_text_chunks=chunks,
+        full_text="",   # computed in detect_genre node
         characters=[],
         scenes=[],
         character_assets=[],

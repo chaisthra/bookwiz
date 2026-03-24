@@ -137,7 +137,6 @@ export default function ScrapbookPage() {
   const [scrapbook, setScrapbook] = useState<ScrapbookDetail | null>(null);
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
-  const [polling, setPolling] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
   const [finalising, setFinalising] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -150,39 +149,57 @@ export default function ScrapbookPage() {
         getScrapbook(id).catch(() => null),
       ]);
       setBook(bookDetail.book);
-
       if (sb) {
         setScrapbook(sb);
         setNoScrapbook(false);
-        // Stop polling when complete
-        const vs = bookDetail.book.visual_status;
-        if (!["generating_images", "generating_scrapbook"].includes(vs ?? "")) {
-          setPolling(false);
-        }
       } else {
         setNoScrapbook(true);
-        setPolling(false);
       }
     } catch {
-      setPolling(false);
+      // ignore
     } finally {
       setLoading(false);
     }
   }, [id]);
 
+  // SSE stream for live progress updates
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+    const es = new EventSource(`${BACKEND}/books/${id}/progress`);
 
-  useEffect(() => {
-    if (!polling) return;
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchData, polling]);
+    es.onmessage = (evt) => {
+      try {
+        const row = JSON.parse(evt.data) as {
+          status?: string;
+          visual_status?: string;
+          current_step?: string;
+        };
+        setBook((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: row.status ?? prev.status,
+                visual_status: row.visual_status ?? prev.visual_status,
+                current_step: row.current_step ?? prev.current_step,
+              }
+            : prev
+        );
+        // Full re-fetch when visuals complete to load scrapbook data
+        if (row.visual_status === "visuals_complete") {
+          fetchData();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    es.onerror = () => es.close();
+    return () => es.close();
+  }, [id, fetchData]);
 
   const handleGenerateVisuals = async () => {
     setGenerating(true);
-    setPolling(true);
     try {
       await generateVisuals(id);
     } finally {

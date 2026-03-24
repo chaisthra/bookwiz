@@ -1,89 +1,91 @@
 """
-Scene Extraction Agent (SEA) — Phase 1
+Scene Extraction Agent — feature/gemini-emotional-engine
 
-GPT-4o — feeling-first extraction.
-Finds scenes that give chills, cause tears, refuse to leave the reader's head.
+Step 1: Gemini 2.5 Flash reads the FULL book text in one call and returns 12 scene candidates.
+Step 2: GPT-5.4 re-ranks candidates to top 6 using the reader's taste profile.
 
-Genre-conditional:
-- Fiction/Romance/Fantasy/Thriller: emotional character moments, tension peaks,
-  relationship turning points, atmospheric beauty
-- Biography: life-defining decisions, pivotal human experiences, triumph/loss
-- Non-fiction/Self-help: ideas that hit hard, paradigm shifts, moments of clarity
+No chunking. No batching. One fast pass, then one emotional curation pass.
 """
 from __future__ import annotations
 
 import json
+import os
 import traceback
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 from db.supabase_client import get_client
+from utils.guardrails import sanitise_description
+from utils.taste_profile import format_for_prompt, get_taste_profile
 
-_SYSTEM = (
+_GEMINI_SYSTEM = (
     "You are a private literary analysis assistant. "
     "The user has uploaded their own personal copy of a book solely for private reading analysis. "
-    "Your role is to identify emotionally significant moments and analyse them. "
-    "Never reproduce extended copyrighted passages — instead describe and paraphrase scenes "
-    "in your own analytical language. Always return valid JSON as instructed."
+    "Identify emotionally significant scenes and describe them analytically in your own words. "
+    "Never reproduce extended copyrighted passages. Always return valid JSON as instructed."
 )
 
-# ── Prompts ───────────────────────────────────────────────────────────────────
+_GPT_SYSTEM = (
+    "You are a deeply empathetic literary curator. "
+    "Your job is to select scenes that will resonate most powerfully with a specific reader's "
+    "emotional fingerprint. You rank by felt resonance, not plot importance. "
+    "Return valid JSON only."
+)
 
-_SCENE_PROMPT = """You are reading a {genre} book and finding its most emotionally powerful moments.
+# ── Prompts ────────────────────────────────────────────────────────────────────
 
-Your job: find scenes that FEEL significant — not just plot-important.
+_GEMINI_EXTRACT_PROMPT = """You are reading a {genre} book. Find the 12 most emotionally powerful moments.
+
 Look for:
 - Moments that give chills or raise goosebumps
 - Scenes that could make a reader cry
-- Moments that refuse to leave the head after the book is finished
-- Visceral beauty, aching tension, gut-punch revelations, quiet devastating truth
+- Gut-punch revelations, quiet devastating truth
+- Visceral beauty, aching tension, defiant triumph
+- Atmospheric beauty that lingers long after reading
 
 Genre guidance:
 - romance/fantasy/fiction/thriller/mystery/classic: emotional character moments,
-  relationship turning points, atmospheric beauty, dread or longing
-- biography/non-fiction: pivotal life decisions, moments of triumph or crushing loss,
-  defining human experiences
-- self-help: ideas that land like a revelation, paradigm shifts, moments of uncomfortable truth
+  relationship turning points, dread or longing
+- biography/non-fiction: pivotal life decisions, triumph, crushing loss
+- self-help: ideas that land like revelation, uncomfortable truths
 
-Taste preferences to apply (if any): {taste_hints}
-
-Read all excerpts and return the top 6 most emotionally powerful moments as JSON array.
-Each item:
+Return a JSON array of exactly 12 items. Each item:
 {{
-  "scene_index": <integer, 1-based order in the book>,
-  "title": "Short evocative title for this scene (5 words max)",
-  "mood": "one word: tender | devastating | triumphant | terrifying | aching | electric | haunting | joyful | defiant | quiet",
-  "emotional_context": "One sentence explaining WHY this scene hits hard",
+  "scene_index": <integer, 1-based chronological order>,
+  "title": "Evocative 5-word-max title",
+  "mood": "tender | devastating | triumphant | terrifying | aching | electric | haunting | joyful | defiant | quiet",
+  "emotional_context": "One sentence: WHY this scene hits hard",
   "characters_present": ["name1", "name2"],
-  "quote": "A 1-2 sentence paraphrase in your own words capturing the emotional peak of this scene — do not reproduce copyrighted text",
-  "context_snippet": "2-3 sentences of context setting up this scene",
-  "emotional_weight_score": <float 0.0-1.0, higher = more emotionally powerful>
+  "quote": "1-2 sentence paraphrase in your own analytical words capturing the emotional peak — never reproduce copyrighted text",
+  "context_snippet": "2-3 sentences setting up this scene",
+  "emotional_weight_score": <float 0.0-1.0>
 }}
 
-Sort by emotional_weight_score descending. Return ONLY valid JSON.
+Sort by emotional_weight_score descending. Return ONLY valid JSON array.
 
-Book excerpts:
+FULL BOOK TEXT:
 {text}
 """
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+_GPT_RERANK_PROMPT = """You are selecting which 6 of these 12 scenes will hit hardest for THIS specific reader.
 
-def _taste_hints(preferences: dict) -> str:
-    if not preferences:
-        return "none provided"
-    tropes = preferences.get("tropes", [])
-    emotional = preferences.get("emotional_fingerprint", {})
-    genres = preferences.get("genres", [])
-    parts = []
-    if genres:
-        parts.append(f"Preferred genres: {', '.join(genres)}")
-    if tropes:
-        parts.append(f"Loved tropes: {', '.join(tropes[:5])}")
-    if emotional:
-        parts.append(f"Emotional preferences: {json.dumps(emotional)}")
-    return "; ".join(parts) if parts else "none provided"
+READER'S EMOTIONAL FINGERPRINT:
+{taste_profile}
 
+SCENE CANDIDATES (from a {genre} book):
+{candidates_json}
+
+Select the 6 scenes that will resonate most deeply with this reader's specific sensibility.
+If no taste profile is provided, select purely by emotional weight score.
+
+Return a JSON array of exactly 6 scene objects — same structure as input, preserving all fields.
+Sort by predicted resonance for this reader. Return ONLY valid JSON array.
+"""
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _safe_json(text: str) -> list:
     text = text.strip()
@@ -96,21 +98,7 @@ def _safe_json(text: str) -> list:
     return json.loads(text)
 
 
-# ── main ──────────────────────────────────────────────────────────────────────
-
-def _sample_chunks(chunks: list[str], max_chunks: int = 40) -> list[str]:
-    """
-    Return at most max_chunks chunks sampled evenly across the book.
-    Always includes the first and last chunk to capture opening/closing scenes.
-    """
-    n = len(chunks)
-    if n <= max_chunks:
-        return chunks
-    # Evenly spaced indices across the full range
-    step = n / max_chunks
-    indices = sorted(set(int(i * step) for i in range(max_chunks)))
-    return [chunks[i] for i in indices]
-
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def run_scene_agent(
     book_id: str,
@@ -118,74 +106,103 @@ def run_scene_agent(
     chunks: list[str],
     user_preferences: dict,
     mode: str = "manual",
+    full_text: str = "",
+    profile_id: str = "",
 ) -> list[dict]:
-    gpt = ChatOpenAI(model="gpt-4o", temperature=0.4)
+    """
+    Step 1: Gemini 2.5 Flash — extract 12 candidates from full book (1 API call).
+    Step 2: GPT-5.4 — re-rank to top 6 using reader taste profile (1 API call).
+    """
+    # Build full text if not supplied by orchestrator
+    if not full_text:
+        full_text = "\n\n".join(chunks)
 
-    # Sample the book to at most 40 chunks (4 batches × 10) to keep latency under 2 min.
-    # Sampling is spread evenly so all narrative phases are covered.
-    sampled = _sample_chunks(chunks, max_chunks=40)
-    print(f"[scene_agent] Processing {len(sampled)}/{len(chunks)} chunks ({len(sampled)//10 + 1} batches)")
+    # Truncate to ~900k chars to stay within 1M token limit safely
+    full_text = full_text[:900_000]
 
-    batch_size = 10
-    all_candidates: list[dict] = []
+    gemini = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0.3,
+        google_api_key=os.environ["GEMINI_API_KEY"],
+    )
 
-    for i in range(0, len(sampled), batch_size):
-        batch = sampled[i : i + batch_size]
-        text = "\n\n---\n\n".join(batch)
+    gpt = ChatOpenAI(model="gpt-5.4", temperature=0.4)
 
-        response = gpt.invoke([
-            SystemMessage(content=_SYSTEM),
-            HumanMessage(content=_SCENE_PROMPT.format(
+    # ── Step 1: Gemini full-book extraction ───────────────────────────────────
+    print(f"[scene_agent] Step 1: Gemini 2.5 Flash full-book extraction ({len(full_text):,} chars)")
+    try:
+        gemini_response = gemini.invoke([
+            SystemMessage(content=_GEMINI_SYSTEM),
+            HumanMessage(content=_GEMINI_EXTRACT_PROMPT.format(
                 genre=genre,
-                taste_hints=_taste_hints(user_preferences),
-                text=text,
+                text=full_text,
             )),
         ])
-        try:
-            batch_scenes = _safe_json(response.content)
-            all_candidates.extend(batch_scenes)
-        except Exception as e:
-            print(f"[scene_agent] Failed to parse batch {i//batch_size} JSON: {e}")
-            print(f"[scene_agent] Raw response: {response.content[:500]}")
-            continue
+        candidates = _safe_json(gemini_response.content)
+        print(f"[scene_agent] Gemini returned {len(candidates)} candidates")
+    except Exception as e:
+        print(f"[scene_agent] Gemini extraction failed: {e}")
+        print(traceback.format_exc())
+        candidates = []
 
-    # Re-rank by emotional_weight_score, keep top 6
-    all_candidates.sort(
-        key=lambda s: float(s.get("emotional_weight_score", 0)), reverse=True
-    )
-    top_scenes = all_candidates[:6]
+    if not candidates:
+        print("[scene_agent] No candidates — returning empty")
+        return []
 
+    # ── Step 2: GPT-5.4 re-ranking with taste profile ─────────────────────────
+    taste = {}
+    if profile_id:
+        taste = get_taste_profile(profile_id)
+    elif user_preferences:
+        taste = user_preferences
+
+    taste_text = format_for_prompt(taste) if taste else "No taste profile available — rank by emotional weight."
+    print(f"[scene_agent] Step 2: GPT-5.4 re-ranking with taste profile")
+
+    try:
+        gpt_response = gpt.invoke([
+            SystemMessage(content=_GPT_SYSTEM),
+            HumanMessage(content=_GPT_RERANK_PROMPT.format(
+                taste_profile=taste_text,
+                genre=genre,
+                candidates_json=json.dumps(candidates, indent=2),
+            )),
+        ])
+        top_scenes = _safe_json(gpt_response.content)[:6]
+        print(f"[scene_agent] GPT-5.4 selected {len(top_scenes)} scenes")
+    except Exception as e:
+        print(f"[scene_agent] GPT-5.4 re-ranking failed: {e} — falling back to score sort")
+        candidates.sort(key=lambda s: float(s.get("emotional_weight_score", 0)), reverse=True)
+        top_scenes = candidates[:6]
+
+    # ── Persist to DB ─────────────────────────────────────────────────────────
     db = get_client()
-    stored: list[dict] = []
 
-    # Delete any previously extracted scenes for this book before inserting fresh ones
-    # (ensures idempotency on retry without needing a unique constraint on scene_index)
     try:
         db.table("scenes").delete().eq("book_id", book_id).execute()
     except Exception as e:
-        print(f"[scene_agent] Failed to clear old scenes for book {book_id}: {e}")
+        print(f"[scene_agent] Failed to clear old scenes: {e}")
 
+    stored: list[dict] = []
     for scene in top_scenes:
         record = {
             "book_id": book_id,
             "scene_index": scene.get("scene_index"),
             "title": scene.get("title", ""),
             "mood": scene.get("mood", ""),
-            "emotional_context": scene.get("emotional_context", ""),
+            "emotional_context": sanitise_description(scene.get("emotional_context", ""), genre),
             "characters_present": scene.get("characters_present", []),
-            "quote": scene.get("quote", ""),
-            "context_snippet": scene.get("context_snippet", ""),
+            "quote": sanitise_description(scene.get("quote", ""), genre),
+            "context_snippet": sanitise_description(scene.get("context_snippet", ""), genre),
             "emotional_weight_score": scene.get("emotional_weight_score", 0.0),
-            "user_approved": None,  # set after user selection in manual mode
+            "user_approved": None,
         }
-
         try:
             result = db.table("scenes").insert(record).execute()
             if result.data:
                 record["id"] = result.data[0]["id"]
         except Exception as e:
-            print(f"[scene_agent] DB insert failed for scene '{record.get('title')}': {e}")
-            print(traceback.format_exc())
+            print(f"[scene_agent] DB insert failed for '{record.get('title')}': {e}")
             record["db_error"] = str(e)
 
         stored.append(record)

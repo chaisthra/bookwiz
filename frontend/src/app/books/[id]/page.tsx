@@ -36,35 +36,71 @@ export default function BookPage() {
 
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [polling, setPolling] = useState(true);
   const [generatingVisuals, setGeneratingVisuals] = useState(false);
 
   const fetchBook = useCallback(async () => {
     try {
       const data = await getBook(id);
       setDetail(data);
-      const isActive = ["processing", "free_text_requested"].includes(data.book.status)
-        || ["generating_images", "generating_scrapbook"].includes(data.book.visual_status ?? "");
-      if (!isActive) setPolling(false);
     } catch {
-      setPolling(false);
+      // ignore
     } finally {
       setLoading(false);
     }
   }, [id]);
 
+  // SSE progress stream — replaces setInterval polling
   useEffect(() => {
     fetchBook();
-    if (!polling) return;
-    const interval = setInterval(fetchBook, 5000);
-    return () => clearInterval(interval);
-  }, [fetchBook, polling]);
+    const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+    const es = new EventSource(`${BACKEND}/books/${id}/progress`);
+    let lastStatus = "";
+
+    es.onmessage = (evt) => {
+      try {
+        const row = JSON.parse(evt.data) as {
+          status?: string;
+          visual_status?: string;
+          current_step?: string;
+          error?: string;
+        };
+        if (row.error) { es.close(); return; }
+
+        // Live-update just the progress fields without a full fetch
+        setDetail((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            book: {
+              ...prev.book,
+              status: row.status ?? prev.book.status,
+              visual_status: row.visual_status ?? prev.book.visual_status,
+              current_step: row.current_step ?? prev.book.current_step,
+            },
+          };
+        });
+
+        const key = `${row.status}|${row.visual_status}`;
+        if (key !== lastStatus) {
+          lastStatus = key;
+          // Full re-fetch when status changes (picks up new characters/scenes)
+          fetchBook();
+        }
+      } catch {
+        // ignore malformed event
+      }
+    };
+
+    es.onerror = () => { es.close(); setPolling(false); };
+
+    return () => es.close();
+  }, [id, fetchBook]);
 
   const handleGenerateVisuals = async () => {
     setGeneratingVisuals(true);
-    setPolling(true);
     try {
       await generateVisuals(id);
+      // SSE stream will pick up the visual_status change automatically
     } finally {
       setGeneratingVisuals(false);
     }
@@ -196,7 +232,7 @@ export default function BookPage() {
             <SceneSelector
               bookId={id}
               scenes={scenes}
-              onComplete={() => { setPolling(true); fetchBook(); }}
+              onComplete={() => { fetchBook(); }}
             />
           </section>
         )}
