@@ -18,7 +18,7 @@ from langchain_openai import ChatOpenAI
 
 from db.supabase_client import get_client
 from utils.guardrails import sanitise_description
-from utils.taste_profile import format_for_prompt, get_taste_profile
+from utils.taste_profile import get_prompt_injection_template, get_taste_profile
 
 _GEMINI_SYSTEM = (
     "You are a private literary analysis assistant. "
@@ -71,13 +71,15 @@ FULL BOOK TEXT:
 
 _GPT_RERANK_PROMPT = """You are selecting which 6 of these 12 scenes will hit hardest for THIS specific reader.
 
-READER'S EMOTIONAL FINGERPRINT:
+HOW THIS READER READS:
 {taste_profile}
 
 SCENE CANDIDATES (from a {genre} book):
 {candidates_json}
 
-Select the 6 scenes that will resonate most deeply with this reader's specific sensibility.
+Apply the reader's sensibility above to choose the 6 scenes that will land most truthfully for her.
+Prioritise: emotional cost, mutuality, the moment before the dramatic peak, earned endings.
+Deprioritise: grand gestures, intensity without depth, one-sided emotional arcs.
 If no taste profile is provided, select purely by emotional weight score.
 
 Return a JSON array of exactly 6 scene objects — same structure as input, preserving all fields.
@@ -153,10 +155,10 @@ def run_scene_agent(
     taste = {}
     if profile_id:
         taste = get_taste_profile(profile_id)
-    elif user_preferences:
+    if not taste and user_preferences:
         taste = user_preferences
 
-    taste_text = format_for_prompt(taste) if taste else "No taste profile available — rank by emotional weight."
+    taste_text = get_prompt_injection_template(taste) if taste else "No taste profile available — rank by emotional weight."
     print(f"[scene_agent] Step 2: GPT-5.4 re-ranking with taste profile")
 
     try:
