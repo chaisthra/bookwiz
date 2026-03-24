@@ -56,7 +56,7 @@ def _generate(
     size: str,
     aspect_ratio: str,
     reference_images: list[bytes],
-    retries: int = 2,
+    retries: int = 5,
 ) -> bytes | None:
     from google import genai
     from google.genai import types
@@ -87,7 +87,6 @@ def _generate(
                 contents=contents,
                 config=config,
             )
-            # Extract image bytes from response
             for part in response.candidates[0].content.parts:
                 if part.inline_data and part.inline_data.data:
                     return part.inline_data.data
@@ -98,17 +97,19 @@ def _generate(
             err = str(e)
             if "SAFETY" in err.upper() or "policy" in err.lower():
                 print(f"[gemini_client] Safety block on attempt {attempt+1}: {err[:200]}")
-                # Retry with more conservative prompt
                 prompt = _add_safety_prefix(prompt)
+                contents = []
+                for img_bytes in reference_images:
+                    contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
+                contents.append(types.Part.from_text(text=prompt))
             elif "429" in err or "quota" in err.lower() or "rate" in err.lower():
-                wait = 30 * (attempt + 1)
-                print(f"[gemini_client] Rate limited — waiting {wait}s")
-                time.sleep(wait)
+                print(f"[gemini_client] Rate limited — falling back to DALL-E 3")
+                return None   # caller will use DALL-E fallback
             else:
                 print(f"[gemini_client] Error on attempt {attempt+1}: {err[:300]}")
                 print(traceback.format_exc())
-            if attempt == retries - 1:
-                return None
+                if attempt == retries - 1:
+                    return None
 
     return None
 

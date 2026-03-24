@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { getBook, generateVisuals, BookDetail } from "@/lib/api";
+import {
+  getBook, generateVisuals, regeneratePortrait, regenerateSceneImage,
+  regenerateAllPortraits, regenerateAllSceneImages, BookDetail,
+} from "@/lib/api";
 import CharacterCard from "@/components/CharacterCard";
 import SceneCard from "@/components/SceneCard";
 import SceneSelector from "@/components/SceneSelector";
@@ -91,10 +94,32 @@ export default function BookPage() {
       }
     };
 
-    es.onerror = () => { es.close(); setPolling(false); };
+    es.onerror = () => { es.close(); };
 
     return () => es.close();
   }, [id, fetchBook]);
+
+  const handleRegenPortrait = async (charId: string) => {
+    try {
+      const res = await regeneratePortrait(id, charId);
+      return res.portrait_url;
+    } catch { return null; }
+  };
+
+  const handleRegenSceneImage = async (sceneId: string) => {
+    try {
+      const res = await regenerateSceneImage(id, sceneId);
+      return res.image_url;
+    } catch { return null; }
+  };
+
+  const handleRegenAllPortraits = async () => {
+    await regenerateAllPortraits(id);
+  };
+
+  const handleRegenAllSceneImages = async () => {
+    await regenerateAllSceneImages(id);
+  };
 
   const handleGenerateVisuals = async () => {
     setGeneratingVisuals(true);
@@ -240,10 +265,28 @@ export default function BookPage() {
         {/* ── Characters ──────────────────────────────────────────────── */}
         {characters.length > 0 && (
           <section className="animate-fade-up">
-            <h2 className="mb-5 font-serif text-xl font-semibold text-white">Characters</h2>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-serif text-xl font-semibold text-white">Characters</h2>
+              {isComplete && (
+                <button
+                  onClick={handleRegenAllPortraits}
+                  className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                  title="Regenerate all portraits"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Regenerate all portraits
+                </button>
+              )}
+            </div>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
               {characters.map((c) => (
-                <CharacterCard key={c.id} character={c} />
+                <CharacterCard
+                  key={c.id}
+                  character={c}
+                  onRegeneratePortrait={isComplete ? handleRegenPortrait : undefined}
+                />
               ))}
             </div>
           </section>
@@ -252,12 +295,30 @@ export default function BookPage() {
         {/* ── Scenes ──────────────────────────────────────────────────── */}
         {!awaitingScenes && displayScenes.length > 0 && (
           <section className="animate-fade-up">
-            <h2 className="mb-5 font-serif text-xl font-semibold text-white">
-              {approvedScenes.length > 0 ? "Your Scenes" : "Scenes"}
-            </h2>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-serif text-xl font-semibold text-white">
+                {approvedScenes.length > 0 ? "Your Scenes" : "Scenes"}
+              </h2>
+              {isComplete && (
+                <button
+                  onClick={handleRegenAllSceneImages}
+                  className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                  title="Regenerate all scene images"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Regenerate all scene images
+                </button>
+              )}
+            </div>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
               {displayScenes.map((s) => (
-                <SceneCard key={s.id} scene={s} />
+                <SceneCard
+                  key={s.id}
+                  scene={s}
+                  onRegenerateImage={isComplete ? handleRegenSceneImage : undefined}
+                />
               ))}
             </div>
           </section>

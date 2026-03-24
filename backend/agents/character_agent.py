@@ -102,7 +102,22 @@ FULL BOOK TEXT:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _safe_json(text: str) -> dict | list:
+def _safe_json(text: str | list | dict) -> dict | list:
+    # Already parsed — return directly
+    if isinstance(text, (dict, list)):
+        return text
+
+    # Multimodal Gemini response: list of content blocks
+    # e.g. [{"type": "text", "text": "{...}"}, ...]
+    if isinstance(text, list):
+        for block in text:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block["text"]
+                break
+        else:
+            # Fallback: join any string items
+            text = " ".join(str(b) for b in text)
+
     text = text.strip()
     if text.startswith("```"):
         parts = text.split("```")

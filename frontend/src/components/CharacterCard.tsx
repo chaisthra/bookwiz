@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { Character } from "@/lib/api";
 
 const ROLE_GRADIENT: Record<string, string> = {
@@ -27,11 +28,11 @@ const ROLE_ACCENT: Record<string, string> = {
 
 interface CharacterCardProps {
   character: Character;
-  /** Show larger portrait-oriented layout (used on scrapbook page) */
   large?: boolean;
+  onRegeneratePortrait?: (charId: string) => Promise<string | null>;
 }
 
-export default function CharacterCard({ character, large = false }: CharacterCardProps) {
+export default function CharacterCard({ character, large = false, onRegeneratePortrait }: CharacterCardProps) {
   const role      = character.inferred_traits?.role ?? "other";
   const gradient  = ROLE_GRADIENT[role] ?? ROLE_GRADIENT.other;
   const accent    = ROLE_ACCENT[role] ?? ROLE_ACCENT.other;
@@ -41,8 +42,23 @@ export default function CharacterCard({ character, large = false }: CharacterCar
   const attrs     = character.attributes ?? {};
   const initial   = character.name?.[0]?.toUpperCase() ?? "?";
 
+  const [portraitUrl, setPortraitUrl] = useState(character.portrait_url);
+  const [regenerating, setRegenerating] = useState(false);
+
   const avatarHeight = large ? "h-56" : "h-28";
   const cardWidth    = large ? "w-64" : "w-52";
+
+  const handleRegen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRegeneratePortrait || regenerating) return;
+    setRegenerating(true);
+    try {
+      const url = await onRegeneratePortrait(character.id);
+      if (url) setPortraitUrl(url);
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   return (
     <div
@@ -50,9 +66,9 @@ export default function CharacterCard({ character, large = false }: CharacterCar
     >
       {/* Avatar / portrait area */}
       <div className={`relative ${avatarHeight} overflow-hidden`}>
-        {character.portrait_url ? (
+        {portraitUrl ? (
           <Image
-            src={character.portrait_url}
+            src={portraitUrl}
             alt={character.name}
             fill
             className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
@@ -69,11 +85,28 @@ export default function CharacterCard({ character, large = false }: CharacterCar
             />
           </div>
         )}
-        {/* Bottom fade into card */}
         <div
           className="absolute bottom-0 left-0 right-0 h-10"
           style={{ background: "linear-gradient(to bottom, transparent, rgba(20,20,20,0.8))" }}
         />
+
+        {/* Regenerate portrait button */}
+        {onRegeneratePortrait && (
+          <button
+            onClick={handleRegen}
+            disabled={regenerating}
+            title="Regenerate portrait"
+            className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/20 text-white/60 hover:text-white hover:border-white/50 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+          >
+            {regenerating ? (
+              <div className="h-3.5 w-3.5 rounded-full border border-white border-t-transparent animate-spin" />
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Info */}

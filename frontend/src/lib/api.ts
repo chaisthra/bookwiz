@@ -49,6 +49,26 @@ export async function updateScrapbook(
   return data;
 }
 
+export async function regeneratePortrait(bookId: string, charId: string) {
+  const { data } = await backend.post(`/books/${bookId}/characters/${charId}/regenerate-portrait`);
+  return data as { portrait_url: string };
+}
+
+export async function regenerateSceneImage(bookId: string, sceneId: string) {
+  const { data } = await backend.post(`/books/${bookId}/scenes/${sceneId}/regenerate-image`);
+  return data as { image_url: string };
+}
+
+export async function regenerateAllPortraits(bookId: string) {
+  const { data } = await backend.post(`/books/${bookId}/regenerate/portraits`);
+  return data as { status: string };
+}
+
+export async function regenerateAllSceneImages(bookId: string) {
+  const { data } = await backend.post(`/books/${bookId}/regenerate/scene-images`);
+  return data as { status: string };
+}
+
 export async function getNextScenes(bookId: string, offset = 0) {
   const { data } = await backend.get(`/books/${bookId}/scenes/next`, { params: { offset } });
   return data as { scenes: Scene[]; offset: number };

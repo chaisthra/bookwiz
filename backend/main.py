@@ -337,6 +337,117 @@ async def _run_visuals(book_id: str):
         db.table("books").update({"visual_status": "visuals_failed"}).eq("id", book_id).execute()
 
 
+@app.post("/books/{book_id}/characters/{char_id}/regenerate-portrait")
+async def regenerate_portrait(book_id: str, char_id: str):
+    """Regenerate portrait image for a single character."""
+    from agents.image_agent import regenerate_single_portrait
+    db = get_client()
+
+    char_row = db.table("characters").select("*").eq("id", char_id).execute()
+    if not char_row.data:
+        raise HTTPException(404, "Character not found")
+    book_row = db.table("books").select("genre").eq("id", book_id).execute()
+    genre = book_row.data[0]["genre"] if book_row.data else "fiction"
+
+    loop = asyncio.get_running_loop()
+    url = await loop.run_in_executor(
+        None,
+        partial(regenerate_single_portrait, book_id=book_id, char=char_row.data[0], genre=genre),
+    )
+    if not url:
+        raise HTTPException(500, "Image generation failed")
+    return {"portrait_url": url}
+
+
+@app.post("/books/{book_id}/scenes/{scene_id}/regenerate-image")
+async def regenerate_scene_image_endpoint(book_id: str, scene_id: str):
+    """Regenerate scene image for a single scene."""
+    from agents.image_agent import regenerate_single_scene_image
+    db = get_client()
+
+    scene_row = db.table("scenes").select("*").eq("id", scene_id).execute()
+    if not scene_row.data:
+        raise HTTPException(404, "Scene not found")
+    book_row = db.table("books").select("genre").eq("id", book_id).execute()
+    genre = book_row.data[0]["genre"] if book_row.data else "fiction"
+    characters = db.table("characters").select("*").eq("book_id", book_id).execute().data
+
+    loop = asyncio.get_running_loop()
+    url = await loop.run_in_executor(
+        None,
+        partial(regenerate_single_scene_image,
+                book_id=book_id, scene=scene_row.data[0], genre=genre, characters=characters),
+    )
+    if not url:
+        raise HTTPException(500, "Image generation failed")
+    return {"image_url": url}
+
+
+@app.post("/books/{book_id}/regenerate/portraits")
+async def regenerate_all_portraits(book_id: str):
+    """Regenerate all character portraits for a book (background task)."""
+    db = get_client()
+    book_row = db.table("books").select("genre").eq("id", book_id).execute()
+    if not book_row.data:
+        raise HTTPException(404, "Book not found")
+    db.table("books").update({"current_step": "Regenerating portraits…"}).eq("id", book_id).execute()
+    loop = asyncio.get_running_loop()
+    loop.create_task(_run_regenerate_portraits(book_id))
+    return {"status": "regenerating"}
+
+
+async def _run_regenerate_portraits(book_id: str):
+    from agents.image_agent import regenerate_single_portrait
+    db = get_client()
+    try:
+        book_row = db.table("books").select("genre").eq("id", book_id).execute()
+        genre = book_row.data[0]["genre"] if book_row.data else "fiction"
+        characters = db.table("characters").select("*").eq("book_id", book_id).execute().data
+        loop = asyncio.get_running_loop()
+        for i, char in enumerate(characters, 1):
+            db.table("books").update({"current_step": f"Regenerating portrait {i}/{len(characters)}…"}).eq("id", book_id).execute()
+            await loop.run_in_executor(
+                None,
+                partial(regenerate_single_portrait, book_id=book_id, char=char, genre=genre),
+            )
+        db.table("books").update({"current_step": "Portraits regenerated"}).eq("id", book_id).execute()
+    except Exception as e:
+        print(f"[regen portraits] {e}")
+
+
+@app.post("/books/{book_id}/regenerate/scene-images")
+async def regenerate_all_scene_images(book_id: str):
+    """Regenerate all scene images for a book (background task)."""
+    db = get_client()
+    if not db.table("books").select("id").eq("id", book_id).execute().data:
+        raise HTTPException(404, "Book not found")
+    db.table("books").update({"current_step": "Regenerating scene images…"}).eq("id", book_id).execute()
+    loop = asyncio.get_running_loop()
+    loop.create_task(_run_regenerate_scene_images(book_id))
+    return {"status": "regenerating"}
+
+
+async def _run_regenerate_scene_images(book_id: str):
+    from agents.image_agent import regenerate_single_scene_image
+    db = get_client()
+    try:
+        book_row = db.table("books").select("genre").eq("id", book_id).execute()
+        genre = book_row.data[0]["genre"] if book_row.data else "fiction"
+        characters = db.table("characters").select("*").eq("book_id", book_id).execute().data
+        scenes = db.table("scenes").select("*").eq("book_id", book_id).execute().data
+        loop = asyncio.get_running_loop()
+        for i, scene in enumerate(scenes, 1):
+            db.table("books").update({"current_step": f"Regenerating scene image {i}/{len(scenes)}…"}).eq("id", book_id).execute()
+            await loop.run_in_executor(
+                None,
+                partial(regenerate_single_scene_image,
+                        book_id=book_id, scene=scene, genre=genre, characters=characters),
+            )
+        db.table("books").update({"current_step": "Scene images regenerated"}).eq("id", book_id).execute()
+    except Exception as e:
+        print(f"[regen scene images] {e}")
+
+
 @app.get("/books/{book_id}/scenes/next")
 def get_next_scenes(book_id: str, offset: int = 0):
     db = get_client()

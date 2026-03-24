@@ -1,0 +1,216 @@
+{
+  "reader_name": "Chaithra",
+  "profile_version": "1.0",
+  "seeded_from": "191-page ChatGPT reading journal (Hey.docx)",
+  "books_processed": 25,
+
+  "the_question_she_reads_with": "What did this cost them — and does the story actually reckon with that cost, or just gesture at it?",
+
+  "emotional_triggers": [
+    "Love built through sustained effort, not proven through a single grand gesture",
+    "The moment someone chooses the harder path because it's more honest",
+    "Characters who are strong but quietly negotiating impossible things inside",
+    "Restraint — when two people want each other but hold back for something real",
+    "Emotional mutuality — both people doing the work, not just one carrying it all",
+    "Quiet strength in women: not loud, not performative, just deeply resilient",
+    "The moment a grounded, steady man chooses vulnerability",
+    "Healing arcs that feel earned — not rushed, not grand, just real",
+    "Chosen family dynamics: groups who show up for each other beyond romance",
+    "Cultural warmth woven into story — Sunday dinners, family rhythms, heritage",
+    "Characters who reflect each other rather than mold each other",
+    "The scene just BEFORE the dramatic moment — where the real choice lives",
+    "Love that acknowledges effort, not just fate or destiny",
+    "Endings that feel like life continuing, not a problem being solved"
+  ],
+
+  "what_she_ignores": [
+    "Spice for its own sake — intimacy without emotional meaning underneath",
+    "Grand gestures that aren't emotionally earned",
+    "Wealth used as a shortcut to resolve emotional conflict",
+    "One-sided love arcs where only one person does the emotional work",
+    "Forced dramatic sacrifice that isn't grounded in real character motivation",
+    "Epilogue babies or marriages that jump-cut past the emotional landing",
+    "Books that reset emotionally with every new couple (no continuity of feeling)",
+    "Intensity as a substitute for depth",
+    "Love stories where the ending is implied by fate rather than chosen"
+  ],
+
+  "how_she_classifies_love": {
+    "boyfriend_love": "Warm, present, expressive, day-to-day (Ryan from The Right Move) — love you live inside",
+    "husband_love": "Patient, sustaining, adaptable, builds a life (Isaiah from Play Along) — love that continues",
+    "father_love": "Grounded, mature, steady in responsibility, extends beyond romance (Emmett from In Her Own League) — love you grow into",
+    "note": "She separates personal fantasy from narrative appreciation — she maps what kind of love a story represents, not just who is 'best'"
+  },
+
+  "narrative_values": [
+    "Stories that let love grow without fireworks",
+    "Healing arcs where growth happens through emotional effort, not circumstance",
+    "Characters who feel real before they feel dramatic",
+    "Worlds where love exists in many forms at once — romance, friendship, chosen family",
+    "Series continuity: the feeling of living inside a world that keeps going",
+    "Emotional pacing that breathes — scenes that open and close with intention",
+    "Stories that don't resolve conflict through money or status",
+    "Both people choosing each other — not just falling into place",
+    "The 'Sunday lunch' feeling — belonging without needing to earn it every time",
+    "Endings that feel like continuation, not proof"
+  ],
+
+  "what_she_notices_that_others_miss": [
+    "The emotional cost of a scene, not just what happens on the surface",
+    "When emotional arcs are one-sided — one character carrying all the weight",
+    "Whether a story earns its ending or just lands on it",
+    "Power dynamics handled with nuance — she respects when privilege is acknowledged honestly",
+    "The difference between a character being 'emotionally present' vs 'emotionally performative'",
+    "When a book tells you growth happened vs actually making you feel it",
+    "Cultural authenticity — when heritage is woven in, not just decorative",
+    "The choice just before the dramatic moment, not the moment itself",
+    "When a female lead has agency that exists beyond the romance",
+    "Whether emotional vulnerability is mutual or only flows one direction"
+  ],
+
+  "benchmark_books": {
+    "highest_standard": [
+      {
+        "title": "Love Redesigned",
+        "author": "Lauren Asher",
+        "why": "Emotional depth without grand gestures. Both characters do the work. Cultural warmth. Grief, self-worth, and healing handled honestly. They reflected each other rather than molding each other. No money shortcuts to emotional resolution."
+      },
+      {
+        "title": "Play Along",
+        "author": "Liz Tomforde",
+        "why": "The liveable romance. Isaiah is the husband love archetype. Exciting yet grounding. You could get under the skin and live with them. Her comfort book standard."
+      },
+      {
+        "title": "All Your Perfects",
+        "author": "Colleen Hoover",
+        "why": "Quinn's silent pain felt real — stitched into routines, not just loud moments. Graham's letter: 'I promise to love you more when you're hurting than when you're happy.' The benchmark for earned emotional depth in a short book."
+      },
+      {
+        "title": "In Her Own League",
+        "author": "Liz Tomforde",
+        "why": "Mature romance. They worked hard to be together, didn't just sacrifice dramatically. Emmett asked her to fire him — surrendered his career to choose her. Reese had the privilege of the position and used it. Both nuanced, both real."
+      },
+      {
+        "title": "Layla",
+        "author": "Colleen Hoover",
+        "why": "Love beyond logic. He loved her because something inside him recognised her even when it cost him everything rational. Transcendence without losing emotional grounding."
+      }
+    ],
+    "didnt_work": [
+      {
+        "title": "The Vow (film)",
+        "why": "Leo did all the emotional work alone. Paige never acknowledged his effort or sacrifices. No emotional mutuality. She returned because he was safe and waiting — not because she fought for him. Ending felt like falling into place, not choosing."
+      },
+      {
+        "title": "Rewind It Back",
+        "author": "Liz Tomforde",
+        "why": "Felt like a closed system — two people, their pain, their resolution. No entry point. Didn't let her live inside the world the way Play Along did."
+      },
+      {
+        "title": "A Great Big Beautiful Life",
+        "why": "Wanted more time with Alice and the main character in the present. The grandchild arc and memory structure distanced her from the emotional core. She wanted the NOW, not the retrospective."
+      }
+    ]
+  },
+
+  "character_archetypes_she_loves": [
+    {
+      "archetype": "The steady, grounded man",
+      "examples": ["Emmett Montgomery (In Her Own League)", "Owen Gentry (Confess)", "Dean Holder (Hopeless)", "Julian Lopez (Love Redesigned)"],
+      "why": "Protective, observant, emotionally aware without being loud about it. Not overwhelming. Appealing because of steadiness not intensity."
+    },
+    {
+      "archetype": "The quietly resilient woman",
+      "examples": ["Quinn (All Your Perfects)", "Dahlia Muñoz (Love Redesigned)", "Reese Remington (In Her Own League)"],
+      "why": "Strength that isn't performative. Women who carry grief or complexity internally and still choose love and growth."
+    },
+    {
+      "archetype": "The grounded friend / chosen family pillar",
+      "examples": ["Rio (Windy City series)", "Kennedy (Windy City series)"],
+      "why": "The safe person in the ecosystem. Not necessarily a romantic lead but emotionally anchoring to the whole world."
+    }
+  ],
+
+  "what_she_reads_for": {
+    "primary": "Structure of love, not just story of love — she maps what kind of love a book represents, not just whether the couple ends up together",
+    "secondary": "The world beyond the romance — chosen family, continuity, the life that keeps going after the book ends",
+    "tertiary": "Emotional mutuality and honest reckoning — both people choosing, not just one person waiting",
+    "escape_fantasy": "The Sunday lunch at Indy's house — belonging without effort, expected without earning it every time"
+  },
+
+  "series_she_lives_in": {
+    "primary": "Windy City series by Liz Tomforde",
+    "why": "Not just one couple's story — it's a living ecosystem. Overlapping lives, people showing up for each other beyond romance. Characters she loves: Kai, Isaiah, Ryan, Emmett, Reese, Kennedy, Miller, Rio, Max, and even the children (Emmy, Taylor, Ryan's kids). She wants to belong to their Sunday lunch.",
+    "read_order_feelings": {
+      "Mile High": "Entry point",
+      "The Right Move": "Ryan = boyfriend love archetype",
+      "Caught Up": "Electric. Kai and Miller.",
+      "Play Along": "Her comfort standard. Isaiah = liveable romance.",
+      "In Her Own League": "Amazing. Emmett = father love archetype. Mature romance."
+    }
+  },
+
+  "reading_style": {
+    "pace": "Slow and deep — she soaks in emotional pacing, doesn't skim for plot",
+    "engagement": "Lives inside the world — not just a witness to the story",
+    "critical_eye": "Notices emotional shortcuts, unearned endings, one-sided arcs",
+    "emotional_openness": "Lets the full range hit her — joy, ache, guilt, hope — without calling it too much",
+    "preference_for_series": "Strong — she wants continuity of feeling, not emotional reset with each new book",
+    "spice_tolerance": "Present but not the priority — wants emotional meaning behind it, not spice for spectacle"
+  },
+
+  "recurring_phrases_in_her_own_words": [
+    "They worked hard to be together, not just sacrificed something dramatically",
+    "Get under the skin of the story and live with them",
+    "Structure of love, not just story of love",
+    "Liveable romance",
+    "Felt earned",
+    "Felt flat",
+    "It was fun — part deep, part quirky",
+    "She had the privilege",
+    "Maturish romance",
+    "They love each other so much",
+    "Made things work rather than wait for things to work"
+  ],
+
+  "books_read": [
+    "Confess — Colleen Hoover",
+    "All Your Perfects — Colleen Hoover",
+    "The Fine Print — Lauren Asher",
+    "Regretting You — Colleen Hoover",
+    "Book Lovers — Emily Henry",
+    "Funny Story — Emily Henry",
+    "Hopeless — Colleen Hoover",
+    "Ugly Love — Colleen Hoover",
+    "It Ends With Us — Colleen Hoover",
+    "Happy Place — Emily Henry",
+    "Final Offer — Lauren Asher",
+    "Terms and Conditions — Lauren Asher",
+    "Love Redesigned — Lauren Asher",
+    "Wrecked — Lauren Asher",
+    "Throttled — Lauren Asher",
+    "Collided — Lauren Asher",
+    "Redeemed — Lauren Asher",
+    "Layla — Colleen Hoover",
+    "A Great Big Beautiful Life",
+    "Mile High — Liz Tomforde",
+    "The Right Move — Liz Tomforde",
+    "Caught Up — Liz Tomforde",
+    "Play Along — Liz Tomforde",
+    "Rewind It Back — Liz Tomforde",
+    "In Her Own League — Liz Tomforde",
+    "King of Greed — Ana Huang",
+    "So That Happened",
+    "Love Arranged",
+    "Love Unwritten"
+  ],
+
+  "authors_she_follows": [
+    "Colleen Hoover — for emotional depth and quiet devastation",
+    "Liz Tomforde — for the world she lives in (Windy City series)",
+    "Lauren Asher — for emotional effort and growth arcs",
+    "Emily Henry — for intelligent, character-led romance"
+  ],
+
+  "prompt_injection_template": "Read this book the way Chaithra reads. She doesn't ask 'what happened?' She asks: 'What did this cost them — and does the story actually reckon with that cost?' She reads for the moment just before the dramatic scene, where the real choice lives. She values love built through sustained effort over love proven through sacrifice. She wants emotional mutuality — both people doing the work. She notices when an ending is earned vs when the story just lands on it. She lives inside the worlds she loves — she doesn't just witness them. Find the scenes that carry this kind of weight. Not the loudest moments — the truest ones."
+}

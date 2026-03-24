@@ -1,11 +1,12 @@
 """
 Image Generation Agent — feature/gemini-emotional-engine
 
-Uses Gemini image generation (gemini-2.0-flash-preview-image-generation) instead of DALL-E 3.
-Character portraits are generated first, then used as reference images when generating
-scene images — ensuring visual consistency across the scrapbook.
+Primary: Gemini image generation (gemini-2.0-flash-preview-image-generation)
+  - Character portraits first (builds reference library for consistency)
+  - Scene images injected with portrait bytes as reference
+Fallback: gpt-image-1 (OpenAI) when Gemini hits rate limits
 
-Parallel generation via ThreadPoolExecutor.
+Parallel scene generation via ThreadPoolExecutor.
 All prompts include safety guardrails suffix.
 """
 from __future__ import annotations
@@ -13,9 +14,41 @@ from __future__ import annotations
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import httpx
+from openai import OpenAI
+
 from db.supabase_client import get_client
 from utils.gemini_client import fetch_image_bytes, generate_portrait, generate_scene_image
 from utils.guardrails import get_image_safety_suffix
+
+
+def _openai_image_fallback(prompt: str, size: str = "1024x1024") -> bytes | None:
+    """gpt-image-1 fallback when Gemini is rate-limited."""
+    import base64
+    try:
+        client = OpenAI()
+        response = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size=size,
+            quality="high",
+            n=1,
+        )
+        # gpt-image-1 returns b64_json
+        b64 = response.data[0].b64_json
+        if b64:
+            print("[image_agent] gpt-image-1 fallback succeeded")
+            return base64.b64decode(b64)
+        # fallback: url path if available
+        url = getattr(response.data[0], "url", None)
+        if url:
+            resp = httpx.get(url, timeout=60)
+            resp.raise_for_status()
+            return resp.content
+        return None
+    except Exception as e:
+        print(f"[image_agent] gpt-image-1 fallback failed: {e}")
+        return None
 
 
 # ── Prompt builders ───────────────────────────────────────────────────────────
@@ -123,7 +156,9 @@ def _generate_portrait(db, book_id: str, char: dict, genre: str) -> dict | None:
 
     image_bytes = generate_portrait(prompt, size="1K", aspect_ratio="2:3")
     if not image_bytes:
-        print(f"[image_agent] No portrait bytes for '{char['name']}'")
+        print(f"[image_agent] Gemini failed — trying gpt-image-1 for '{char['name']}'")
+        image_bytes = _openai_image_fallback(prompt, size="1024x1024")
+    if not image_bytes:
         return None
 
     try:
@@ -187,7 +222,9 @@ def _generate_scene_image(
         aspect_ratio="16:9",
     )
     if not image_bytes:
-        print(f"[image_agent] No scene bytes for '{scene.get('title')}'")
+        print(f"[image_agent] Gemini failed — trying gpt-image-1 for scene '{scene.get('title')}'")
+        image_bytes = _openai_image_fallback(prompt, size="1536x1024")
+    if not image_bytes:
         return None
 
     try:
@@ -269,3 +306,36 @@ def run_image_agent(
                 scene_assets.append(result)
 
     return {"character_assets": character_assets, "scene_assets": scene_assets}
+
+
+# ── Public single-item regeneration ──────────────────────────────────────────
+
+def regenerate_single_portrait(book_id: str, char: dict, genre: str) -> str | None:
+    """Regenerate portrait for one character. Returns new public URL or None."""
+    db = get_client()
+    result = _generate_portrait(db, book_id, char, genre)
+    return result["asset"]["file_url"] if result else None
+
+
+def regenerate_single_scene_image(
+    book_id: str, scene: dict, genre: str, characters: list[dict]
+) -> str | None:
+    """
+    Regenerate scene image for one scene.
+    Loads existing portrait bytes from Supabase Storage URLs for reference injection.
+    Returns new public URL or None.
+    """
+    db = get_client()
+
+    # Build portrait_map from existing portrait_url columns
+    portrait_map: dict[str, bytes] = {}
+    for char in characters:
+        name = char.get("name", "")
+        url = char.get("portrait_url", "")
+        if name and url:
+            img_bytes = fetch_image_bytes(url)
+            if img_bytes:
+                portrait_map[name] = img_bytes
+
+    result = _generate_scene_image(db, book_id, scene, genre, portrait_map)
+    return result["file_url"] if result else None

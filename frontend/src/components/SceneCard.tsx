@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { Scene } from "@/lib/api";
 
 const MOOD_CONFIG: Record<string, { border: string; badge: string; glow: string }> = {
@@ -21,8 +22,8 @@ interface SceneCardProps {
   selected?: boolean;
   onToggle?: (id: string) => void;
   selectable?: boolean;
-  /** Show larger landscape layout (used on scrapbook page) */
   large?: boolean;
+  onRegenerateImage?: (sceneId: string) => Promise<string | null>;
 }
 
 export default function SceneCard({
@@ -31,10 +32,26 @@ export default function SceneCard({
   onToggle,
   selectable = false,
   large = false,
+  onRegenerateImage,
 }: SceneCardProps) {
   const cfg   = MOOD_CONFIG[scene.mood?.toLowerCase()] ?? MOOD_CONFIG.quiet;
   const score = scene.emotional_weight_score ?? 0;
   const cardWidth = large ? "w-96" : "w-72";
+
+  const [imageUrl, setImageUrl] = useState(scene.image_url);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleRegen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRegenerateImage || regenerating) return;
+    setRegenerating(true);
+    try {
+      const url = await onRegenerateImage(scene.id);
+      if (url) setImageUrl(url);
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   return (
     <div
@@ -63,21 +80,54 @@ export default function SceneCard({
         </div>
       )}
 
-      {/* Scene image (when available) */}
-      {scene.image_url && (
-        <div className="relative h-36 w-full overflow-hidden">
-          <Image
-            src={scene.image_url}
-            alt={scene.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes={large ? "384px" : "288px"}
-          />
+      {/* Scene image */}
+      {(imageUrl || regenerating) && (
+        <div className="relative h-36 w-full overflow-hidden bg-white/5">
+          {imageUrl && !regenerating && (
+            <Image
+              src={imageUrl}
+              alt={scene.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes={large ? "384px" : "288px"}
+            />
+          )}
+          {regenerating && (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-6 w-6 rounded-full border-2 border-aged-gold border-t-transparent animate-spin" />
+            </div>
+          )}
           <div
             className="absolute bottom-0 left-0 right-0 h-12"
             style={{ background: "linear-gradient(to bottom, transparent, rgba(42,42,42,0.95))" }}
           />
+          {/* Regenerate image button */}
+          {onRegenerateImage && imageUrl && (
+            <button
+              onClick={handleRegen}
+              disabled={regenerating}
+              title="Regenerate scene image"
+              className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/20 text-white/60 hover:text-white hover:border-white/50 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
         </div>
+      )}
+
+      {/* No image yet — show regenerate button inline */}
+      {!imageUrl && !regenerating && onRegenerateImage && (
+        <button
+          onClick={handleRegen}
+          className="w-full flex items-center justify-center gap-2 py-3 text-xs text-white/30 hover:text-white/60 transition-colors border-b border-white/5"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Generate image
+        </button>
       )}
 
       <div className="p-4 space-y-3">
@@ -91,19 +141,16 @@ export default function SceneCard({
           </h3>
         </div>
 
-        {/* Emotional context */}
         <p className="text-xs text-white/60 leading-relaxed line-clamp-2">
           {scene.emotional_context}
         </p>
 
-        {/* Quote */}
         {scene.quote && (
           <blockquote className="border-l-2 border-aged-gold/40 pl-3 font-serif text-xs italic text-white/70 line-clamp-3 leading-relaxed">
             &ldquo;{scene.quote.length > 140 ? scene.quote.slice(0, 140) + "…" : scene.quote}&rdquo;
           </blockquote>
         )}
 
-        {/* Characters present */}
         {scene.characters_present?.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {scene.characters_present.map((c) => (
@@ -114,7 +161,6 @@ export default function SceneCard({
           </div>
         )}
 
-        {/* Score bar */}
         <div className="h-[2px] w-full overflow-hidden rounded-full bg-white/8">
           <div
             className="h-full rounded-full bg-aged-gold/60 transition-all duration-500"
