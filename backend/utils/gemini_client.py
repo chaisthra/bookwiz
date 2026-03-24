@@ -62,7 +62,7 @@ def _generate(
     from google.genai import types
 
     client = _get_client()
-    model = "gemini-2.0-flash-preview-image-generation"
+    model = "gemini-2.5-flash-image"
 
     # Build contents list: text prompt + optional reference images
     contents: list = []

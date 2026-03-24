@@ -9,6 +9,7 @@ import {
 import CharacterCard from "@/components/CharacterCard";
 import SceneCard from "@/components/SceneCard";
 import SceneSelector from "@/components/SceneSelector";
+import Toast from "@/components/Toast";
 
 const GENRE_GRADIENTS: Record<string, string> = {
   romance:      "135deg, #5a1020 0%, #2d0a1a 40%, #141414 100%",
@@ -40,6 +41,10 @@ export default function BookPage() {
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingVisuals, setGeneratingVisuals] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "info"|"success"|"error" } | null>(null);
+
+  const showToast = (message: string, type: "info"|"success"|"error" = "info") =>
+    setToast({ message, type });
 
   const fetchBook = useCallback(async () => {
     try {
@@ -100,24 +105,36 @@ export default function BookPage() {
   }, [id, fetchBook]);
 
   const handleRegenPortrait = async (charId: string) => {
+    showToast("Regenerating portrait…");
     try {
       const res = await regeneratePortrait(id, charId);
+      showToast("Portrait updated", "success");
       return res.portrait_url;
-    } catch { return null; }
+    } catch {
+      showToast("Portrait generation failed", "error");
+      return null;
+    }
   };
 
   const handleRegenSceneImage = async (sceneId: string) => {
+    showToast("Regenerating scene image…");
     try {
       const res = await regenerateSceneImage(id, sceneId);
+      showToast("Scene image updated", "success");
       return res.image_url;
-    } catch { return null; }
+    } catch {
+      showToast("Scene image generation failed", "error");
+      return null;
+    }
   };
 
   const handleRegenAllPortraits = async () => {
+    showToast("Regenerating all portraits in background…");
     await regenerateAllPortraits(id);
   };
 
   const handleRegenAllSceneImages = async () => {
+    showToast("Regenerating all scene images in background…");
     await regenerateAllSceneImages(id);
   };
 
@@ -325,5 +342,9 @@ export default function BookPage() {
         )}
       </div>
     </div>
+
+    {toast && (
+      <Toast message={toast.message} type={toast.type} onDone={() => setToast(null)} />
+    )}
   );
 }

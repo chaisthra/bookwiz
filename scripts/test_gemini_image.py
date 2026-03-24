@@ -27,13 +27,13 @@ def main():
         sys.exit(1)
 
     print(f"GEMINI_API_KEY loaded: {api_key[:8]}...{api_key[-4:]}")
-    print("Calling gemini-2.0-flash-preview-image-generation ...")
+    print("Calling gemini-2.5-flash-image ...")
 
     client = genai.Client(api_key=api_key)
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash-preview-image-generation",
+            model="gemini-2.5-flash-image",
             contents=[types.Part.from_text(text="A simple red apple on a white background")],
             config=types.GenerateContentConfig(
                 response_modalities=["TEXT", "IMAGE"],

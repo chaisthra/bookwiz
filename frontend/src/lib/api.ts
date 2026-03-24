@@ -49,6 +49,11 @@ export async function updateScrapbook(
   return data;
 }
 
+export async function deleteBook(bookId: string) {
+  const { data } = await backend.delete(`/books/${bookId}`);
+  return data as { status: string };
+}
+
 export async function regeneratePortrait(bookId: string, charId: string) {
   const { data } = await backend.post(`/books/${bookId}/characters/${charId}/regenerate-portrait`);
   return data as { portrait_url: string };

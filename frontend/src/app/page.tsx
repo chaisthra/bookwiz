@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getProfiles, getBooks, Profile, Book } from "@/lib/api";
+import { getProfiles, getBooks, deleteBook, Profile, Book } from "@/lib/api";
 import UploadZone from "@/components/UploadZone";
 import BookCard from "@/components/BookCard";
 
@@ -43,6 +43,11 @@ export default function Home() {
 
   const handleUploadComplete = (bookId: string, mode: "auto" | "manual") => {
     router.push(`/books/${bookId}?mode=${mode}`);
+  };
+
+  const handleDelete = async (bookId: string) => {
+    await deleteBook(bookId);
+    setBooks((prev) => prev.filter((b) => b.id !== bookId));
   };
 
   const featuredBook = books[0];
@@ -154,6 +159,7 @@ export default function Home() {
                 key={book.id}
                 book={book}
                 onClick={() => router.push(`/books/${book.id}`)}
+                onDelete={handleDelete}
               />
             ))}
           </div>

@@ -166,6 +166,28 @@ def get_book(book_id: str):
     }
 
 
+@app.delete("/books/{book_id}")
+def delete_book(book_id: str):
+    """Delete a book and all related data (characters, scenes, scrapbook, assets)."""
+    db = get_client()
+    if not db.table("books").select("id").eq("id", book_id).execute().data:
+        raise HTTPException(404, "Book not found")
+    # Cascade delete — FK constraints handle children if ON DELETE CASCADE is set,
+    # otherwise delete manually in order
+    for table in ("assets", "scrapbooks", "scenes", "characters"):
+        db.table(table).delete().eq("book_id", book_id).execute()
+    db.table("books").delete().eq("id", book_id).execute()
+    # Best-effort: clean up storage folder
+    try:
+        files = db.storage.from_("book-assets").list(book_id)
+        if files:
+            paths = [f"{book_id}/{f['name']}" for f in files]
+            db.storage.from_("book-assets").remove(paths)
+    except Exception:
+        pass
+    return {"status": "deleted"}
+
+
 @app.get("/books/{book_id}/visual-status")
 def get_visual_status(book_id: str):
     db = get_client()
