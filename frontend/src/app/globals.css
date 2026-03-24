@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-nf-bg text-white font-sans antialiased;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep scrollable */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Loading skeleton shimmer */
+  .skeleton {
+    @apply relative overflow-hidden bg-nf-card rounded-lg;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.4s infinite;
+  }
+
+  /* Card hover — scale up with glow */
+  .book-card-hover {
+    @apply transition-all duration-300 ease-out cursor-pointer;
+  }
+  .book-card-hover:hover {
+    @apply scale-105 z-10;
+    filter: brightness(1.1);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  }
+
+  /* Gold glow */
+  .gold-glow {
+    box-shadow: 0 0 24px rgba(200,168,75,0.25);
+  }
+  .gold-glow-hover:hover {
+    box-shadow: 0 0 36px rgba(200,168,75,0.4);
+  }
+
+  /* Text balance */
+  .text-balance { text-wrap: balance; }
+}
